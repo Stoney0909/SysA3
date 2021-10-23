@@ -11,6 +11,7 @@ typedef struct symbol
 {
     int line;
     char name[16];
+    float data;
 }symbol;
 typedef struct Data
 {

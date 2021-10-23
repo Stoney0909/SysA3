@@ -3,6 +3,7 @@
 //
 // public interface to the vmx20 implementation
 //
+// #include "Structs.h"
 
 // maximum number of processors
 #define VMX20_MAX_PROCESSORS 16
@@ -66,6 +67,14 @@ int putWord(unsigned int addr, int word);
 //
 int execute(unsigned int numProcessors, unsigned int initialSP[],
       int terminationStatus[], int trace);
+
+void printVal();
+
+void printResults(char **mystrlist, int amount);
+
+int loadSymsfrominterface();
+
+int preloadsym(char **names, float *val, int amount);
 
 void run1stpass(int pc);
 

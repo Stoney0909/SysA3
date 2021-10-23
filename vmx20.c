@@ -14,6 +14,11 @@ static int inSymSize;
 static int opCodeSize;
 static int dataSize;
 static reg *registers;
+static char **preloadNames;
+static float *preloadVals;
+static int amountofPreload;
+static char **resultList;
+static int resultAmount;
 
 int loadExecutableFile(char *filename, int *errorNumber)
 {
@@ -118,6 +123,21 @@ int loadExecutableFile(char *filename, int *errorNumber)
         inst[i].line = i;
     }
     data = (Data *)malloc(opCodeSize * sizeof(Data));
+
+    load0intoReg();
+    //1st pass
+    run1stpass(0);
+    //load data
+    for (int i = 0; i < opCodeSize; i++)
+    {
+        // printTrace();
+        if (inst[i].checked != true)
+        {
+            int result = inst[i].code[3] | inst[i].code[2] | inst[i].code[1] | inst[i].code[0];
+            putWord(i, result);
+            continue;
+        }
+    }
     return 1;
 }
 
@@ -189,41 +209,87 @@ int putWord(unsigned int addr, int word)
 //   Note: that all other registers will be initialized to 0, including
 //     the PC and the FP.
 //
+
 int execute(unsigned int numProcessors, unsigned int initialSP[],
             int terminationStatus[], int trace)
 {
-    load0intoReg();
-    //1st pass
-    run1stpass(0);
-    //2nd pass
-    int *error;
-    for (int i = 0; i < opCodeSize; i++)
+    if (loadSymsfrominterface() == 0)
     {
-        // printTrace();
-        if (inst[i].checked != true)
-        {
-            int result = inst[i].code[3] | inst[i].code[2] | inst[i].code[1] | inst[i].code[0];
-            putWord(i, result);
-            continue;
-        }
+        printf("Failed to Load Insymbols from input\n");
+        return 0;
     }
+    int *error;
     for (int i = 0; i < opCodeSize; i++)
     {
 
         if (inst[i].checked == true)
         {
-            printTrace();
+            // printTrace();
             if (runOpcode(inst[i].code, i, error) == 0)
             {
                 return 0;
             }
             if (inst[i].code[0] == halt)
             {
+                printVal();
                 return 1;
             }
         }
     }
+    return 1;
+}
 
+void printVal()
+{
+    for (int i = 0; i < resultAmount; i++)
+    {
+        
+        int *outword = malloc(sizeof(int));
+        for (int j = 0; j < inSymSize; j++)
+        {
+            
+            if (strcmp(resultList[i], insyms[j].name) == 0)
+            {
+               printf("%s = ", resultList[i]);
+                getWord(insyms[j].line, outword);
+                printf("%d\n", *outword);
+            }
+        }
+    }
+}
+
+void printResults(char **mystrlist, int amount)
+{
+    resultAmount = amount;
+    resultList = malloc(sizeof(char *) * amount);
+    memcpy(resultList, mystrlist, sizeof(mystrlist));
+}
+
+int loadSymsfrominterface()
+{
+
+    for (int i = 0; i < amountofPreload; i++)
+    {
+
+        for (int j = 0; j < inSymSize; j++)
+        {
+
+            if (strcmp(preloadNames[i], insyms[j].name) == 0)
+            {
+                putWord(insyms[j].line, (int)*preloadVals);
+            }
+        }
+    }
+    return 1;
+}
+
+int preloadsym(char **names, float *val, int amount)
+{
+    amountofPreload = amount;
+    preloadVals = malloc(sizeof(float) * amount);
+    preloadNames = malloc(sizeof(char *) * amount);
+    memcpy(preloadVals, val, sizeof(val));
+    memcpy(preloadNames, names, sizeof(names));
     return 1;
 }
 
@@ -315,20 +381,20 @@ void run1stpass(int pc)
 
 int runOpcode(char code[4], int pc, int *error)
 {
-    for (int j = 3; j > -1; j--)
-    {
-        printf("%02hhx", code[j]);
-    }
+    // for (int j = 3; j > -1; j--)
+    // {
+    //     printf("%02hhx", code[j]);
+    // }
 
     if (code[0] == jmp)
     {
-        printf(" Jump\n");
+        // printf(" Jump\n");
         return 1;
     }
 
     else if (code[0] == load)
     {
-        printf(" Load\n");
+        // printf(" Load\n");
         int result = code[3] | code[2] | (code[1] >> 4);
         if (result > 0)
         {
@@ -364,13 +430,13 @@ int runOpcode(char code[4], int pc, int *error)
 
     else if (code[0] == halt)
     {
-        printf("\n");
+        // printf("\n");
         return 1;
     }
 
     else if (code[0] == store)
     {
-        printf(" Store\n");
+        // printf(" Store\n");
         int result = code[3] | code[2] | (code[1] >> 4);
         if (result > 0)
         {
@@ -438,7 +504,7 @@ int runOpcode(char code[4], int pc, int *error)
 
     else if (code[0] == ldaddr)
     {
-        printf(" ldaddr\n");
+        // printf(" ldaddr\n");
         int result = code[3] | code[2] | (code[1] >> 4);
         if (result > 0)
         {
@@ -466,7 +532,7 @@ int runOpcode(char code[4], int pc, int *error)
 
     else if (code[0] == ldimm)
     {
-        printf(" ldimm\n");
+        // printf(" ldimm\n");
         int result = code[3] | code[2] | (code[1] >> 4);
 
         registers[code[1] & 0xf].regNum = result;
@@ -474,26 +540,9 @@ int runOpcode(char code[4], int pc, int *error)
         return 1;
     }
 
-    // else if (code[0] == 1)
-    // {
-    //     printf(" ");
-    //     for (int j = 3; j > 0; j--)
-    //     {
-    //         // char inSymLines[50];
-    //         // sprintf(inSymLines, "%u", *(int *)insymbolSize);
-
-    //         // int insymLinesInt = atoi(inSymLines);
-
-    //         // printf("%d", inst[i].code);
-    //     }
-    //     char holder[] = "";
-    //     int result = code[3] | code[2] |(code[1] >> 4);
-    //     printf(" %d ", result);
-    //     return 1;
-    // }
     else
     {
-        printf("\n");
+        // printf("\n");
         return 1;
     }
 }

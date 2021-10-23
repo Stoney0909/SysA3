@@ -8,24 +8,23 @@ int main(int argc, char **argv)
 {
     int *loadError = malloc(sizeof(int));
 
-    int loadReturn = loadExecutableFile(argv[1], loadError);//only works for 1 file currently
+    int loadReturn = loadExecutableFile(argv[1], loadError); //only works for 1 file currently
 
     if (loadReturn == 0)
     {
         printLoadError(loadError);
     }
-    else{
-        printf("Success\n");
+    else
+    {
+        int term[1];
+        unsigned int sp[1];
+        execute(1, sp, term, 1);
     }
-
-
-
-
 }
 
 void printLoadError(int *error)
 {
-    int errorint = *(int*) error;
+    int errorint = *(int *)error;
     switch (errorint)
     {
     case VMX20_FILE_NOT_FOUND:
@@ -47,14 +46,7 @@ void printLoadError(int *error)
     }
 }
 
-
-
-
-//todo 
+//todo
 //Implement:
-//loadexe
-//getaddr
-//getword
-//putword
 //execute without trace
 //exe supports jmp load store halt add and sub instr with mainx20 entry point

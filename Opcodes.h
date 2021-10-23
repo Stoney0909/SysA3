@@ -1,0 +1,27 @@
+#define halt 0
+#define load 1
+#define store 2
+#define ldimm 3
+#define ldaddr 4
+#define ldind 5
+#define stind 6
+#define addf 7
+#define subf 8
+#define divf 9
+#define mulf 10
+#define addi 11
+#define subi 12
+#define divi 13
+#define muli 14
+#define call 15
+#define ret 16
+#define blt 17
+#define bgt 18
+#define beq 19
+#define jmp 20
+#define cmpxchg 21
+#define getpid 22
+#define getpn 23
+#define push 24
+#define pop 25
+

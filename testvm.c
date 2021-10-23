@@ -3,6 +3,7 @@
 #include <string.h>
 #include "vmx20.h"
 #include "Structs.h"
+#include "extraFunc.h"
 
 void printLoadError(int *error);
 
@@ -56,7 +57,8 @@ int main(int argc, char **argv)
         int term[1];
         unsigned int sp[1];
         if(execute(1, sp, term, 1) == 1){
-            printf("vmx halts with status 0\n");
+            // printf("vmx halts with status 0\n");
+            exit(0);
         }
     }
 }

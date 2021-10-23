@@ -68,21 +68,7 @@ int putWord(unsigned int addr, int word);
 int execute(unsigned int numProcessors, unsigned int initialSP[],
       int terminationStatus[], int trace);
 
-void printVal();
 
-void printResults(char **mystrlist, int amount);
-
-int loadSymsfrominterface();
-
-int preloadsym(char **names, float *val, int amount);
-
-void run1stpass(int pc);
-
-int runOpcode(char code[4], int pc, int *error);
-
-void printTrace();
-
-void load0intoReg();
 // disassemble the word at the given address
 //   return 1 if successful and 0 otherwise
 //   the first parameter contains the address of the word to disassemble

@@ -6,6 +6,7 @@
 #include "Structs.h"
 #include <stdint.h>
 #include "Opcodes.h"
+#include "extraFunc.h"
 
 static symbol *insyms = NULL;
 static instruction *inst = NULL;

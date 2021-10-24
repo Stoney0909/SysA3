@@ -17,14 +17,10 @@ typedef struct Data
 {
     int line;
     int data;
-    float dataf;
-    bool isdataf;
 }Data;
 typedef struct reg
 {
     int regNum;
-    float regNumf;
-    bool isregNumf;
 }reg;
 
 

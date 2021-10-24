@@ -44,6 +44,13 @@ int main(int argc, char **argv)
             results[count++] = argv[i];
         }
     }
+    printf("good\n");
+    
+    for (int i = 0; i < count; i++)
+    {
+        printf("%s\n", results[i]);
+    }
+    
 
 
     if (loadReturn == 0)
@@ -58,6 +65,7 @@ int main(int argc, char **argv)
         unsigned int sp[1];
         if(execute(1, sp, term, 1) == 1){
             // printf("vmx halts with status 0\n");
+             printVal();
             exit(0);
         }
     }

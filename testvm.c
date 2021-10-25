@@ -7,6 +7,8 @@
 
 void printLoadError(int *error);
 
+void printExecuteTerm(int term[], int cpu);
+
 int main(int argc, char **argv)
 {
     int *loadError = malloc(sizeof(int));
@@ -28,13 +30,18 @@ int main(int argc, char **argv)
             if (mystr[j] == '=')
             {
                 hasVal = true;
-                strncpy(name[preloadCount], mystr, j);
+
+                char *temp1 = malloc(sizeof(j * sizeof(char)));
+                strncpy(temp1, mystr, j * sizeof(char));
+                name[preloadCount] = temp1;
                 name[preloadCount][j] = '\0';
-                char *temp = malloc(sizeof(char *));
+
+                char *temp = malloc((strlen(argv[i]) - j) * sizeof(char));
                 strncpy(temp, mystr + j + 1, strlen(mystr) - j);
                 val[preloadCount++] = atof(temp);
             }
         }
+
         if (hasVal == false) //add to print results
         {
             results[count++] = argv[i];
@@ -55,12 +62,13 @@ int main(int argc, char **argv)
         int term[1];
         unsigned int sp[1];
         sp[0] = 0;
-        if (execute(1, sp, term, 1) == 1)
+        if (execute(1, sp, term, 0) == 1)
         {
-            printf("Term %d\n", term[0]);
+            printExecuteTerm(term, 1);
             printVal();
             exit(0);
         }
+        
     }
 }
 
@@ -85,6 +93,33 @@ void printLoadError(int *error)
         printf("NULL_ERROR\n");
         exit(0);
         break;
+    }
+}
+
+void printExecuteTerm(int term[], int cpu)
+{
+
+    for (int i = 0; i < cpu; i++)
+    {
+        switch (term[i])
+        {
+        case VMX20_NORMAL_TERMINATION:
+            printf("Processor %d VMX20_NORMAL_TERMINATION\n", i);
+            break;
+        case VMX20_DIVIDE_BY_ZERO:
+            printf("Processor %d VMX20_DIVIDE_BY_ZERO\n", i);
+            break;
+        case VMX20_ADDRESS_OUT_OF_RANGE:
+            printf("Processor %d VMX20_ADDRESS_OUT_OF_RANGE\n", i);
+            break;
+        case VMX20_ILLEGAL_INSTRUCTION:
+            printf("Processor %d VMX20_ILLEGAL_INSTRUCTION\n", i);
+            break;
+
+        default:
+            printf("Processor %d VMX20_NULL_TERMINATION\n", i);
+            break;
+        }
     }
 }
 

@@ -280,7 +280,7 @@ void printVal()
             {
                 printf("%s = ", resultList[i]);
                 getWord(insyms[j].line, outword);
-                printf("%d\n", *outword);
+                printf("%.6g\n", *(float*)&*outword);
             }
         }
     }
@@ -298,13 +298,11 @@ int loadSymsfrominterface()
 
     for (int i = 0; i < amountofPreload; i++)
     {
-
         for (int j = 0; j < inSymSize; j++)
         {
-
             if (strcmp(preloadNames[i], insyms[j].name) == 0)
             {
-                putWord(insyms[j].line, (int)*preloadVals);
+                putWord(insyms[j].line, *(int *)&preloadVals[i]);
             }
         }
     }
@@ -493,7 +491,7 @@ int runOpcode(char code[4], int pc, int *error, bool tracing)
             printf(" Store\n");
         }
         int result = returnAddr(code, 5);
-        printf("%d\n", result + pc);
+        // printf("%d\n", result + pc);
 
         if (pc + result > opCodeSize)
         {
@@ -522,10 +520,10 @@ int runOpcode(char code[4], int pc, int *error, bool tracing)
             printf(" addf\n");
         }
 
-        float firstReg = registers[code[1] & 0xf].regNum;
-        float secReg = registers[code[1] >> 4].regNum;
-        // registers[code[1] >> 4].regNum = 0;
-        registers[code[1] & 0xf].regNum = (int)(firstReg + secReg);
+        float firstReg = *(float*)&registers[code[1] & 0xf].regNum;
+        float secReg = *(float*)&registers[code[1] >> 4].regNum;
+        float total = firstReg + secReg;
+        registers[code[1] & 0xf].regNum = *(int *)&total;
     }
 
     else if (code[0] == addi)
@@ -551,9 +549,10 @@ int runOpcode(char code[4], int pc, int *error, bool tracing)
             printf(" subf\n");
         }
 
-        float firstReg = registers[code[1] & 0xf].regNum;
-        float secReg = registers[code[1] >> 4].regNum;
-        registers[code[1] & 0xf].regNum = (int)(firstReg - secReg);
+        float firstReg = *(float*)&registers[code[1] & 0xf].regNum;
+        float secReg = *(float*)&registers[code[1] >> 4].regNum;
+        float total = firstReg - secReg;
+        registers[code[1] & 0xf].regNum = *(int *)&total;
         // registers[code[1] >> 4].regNum = 0;
     }
 

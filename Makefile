@@ -9,10 +9,10 @@ LDIR =../lib
 LIBS=-lm
 
 
-_DEPS = vmx20.h Structs.h Opcodes.h extraFunc.h
+_DEPS = vmx20.h Structs.h Opcodes.h extraFunc.h Stack.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
-_OBJ = testvm.o  vmx20.o
+_OBJ = testvm.o  vmx20.o Stack.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 

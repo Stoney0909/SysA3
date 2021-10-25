@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include "Opcodes.h"
 #include "extraFunc.h"
+#include "Stack.h"
 
 static symbol *insyms = NULL;
 static instruction *inst = NULL;
@@ -131,14 +132,14 @@ int loadExecutableFile(char *filename, int *errorNumber)
     //load data
     for (int i = 0; i < opCodeSize; i++)
     {
-        
+
         if (inst[i].checked != true)
         {
             // for (int j = 0; j < 4; j++)
             // {
             //     printf("%02hhx", inst[i].code[j]);
             // }
-            
+
             int result = (inst[i].code[3] << 24) | (inst[i].code[2] << 16) | (inst[i].code[1] << 8) | (inst[i].code[0]);
             // printf(" %d   %d\n", i, result);
             putWord(i, result);
@@ -227,26 +228,41 @@ int execute(unsigned int numProcessors, unsigned int initialSP[],
         return 0;
     }
 
-    
-    int *error;
-    for (int i = 0; i < opCodeSize; i++)
+    //Initialize stack and put in values
+    stack *sp = newStack(50);
+    for (int i = 0; i < sizeof(*initialSP) / 4; i++)
     {
+        stackpush(sp, initialSP[i]);
+    }
 
-        if (inst[i].checked == true  && inst[i].data == false)
+    int *error;
+    while (!isEmpty(sp))
+    {
+        int i = stackpeek(sp);
+        if (inst[i].checked == true && inst[i].data == false)
         {
-            printTrace();
-            if (runOpcode(inst[i].code, i, error) == 0)
+            if (trace)
             {
-                return 0;
+                printTrace();
+            }
+
+            if (runOpcode(inst[i].code, i, error, trace) == 0)
+            {
+                terminationStatus[0] = *error;
             }
             if (inst[i].code[0] == halt)
-            {               
+            {
                 terminationStatus[0] = 0;
+                return 1;
             }
         }
-        else{
+        else
+        {
             // printf("data\n");
         }
+        stackpop(sp);
+        i++;
+        stackpush(sp, i);
     }
     return 1;
 }
@@ -255,14 +271,14 @@ void printVal()
 {
     for (int i = 0; i < resultAmount; i++)
     {
-        
+
         int *outword = malloc(sizeof(int));
         for (int j = 0; j < inSymSize; j++)
         {
-            
+
             if (strcmp(resultList[i], insyms[j].name) == 0)
             {
-               printf("%s = ", resultList[i]);
+                printf("%s = ", resultList[i]);
                 getWord(insyms[j].line, outword);
                 printf("%d\n", *outword);
             }
@@ -310,7 +326,8 @@ void run1stpass(int pc)
     int i = pc;
     while (true)
     {
-        if (inst[i].checked == false  && inst[i].data != true);
+        if (inst[i].checked == false && inst[i].data != true)
+            ;
         {
             inst[i].data = false;
             inst[i].checked = true;
@@ -325,7 +342,7 @@ void run1stpass(int pc)
                     {
                         inst[j].data = true;
                     }
-                    
+
                     run1stpass(i + result + 1);
                     return;
                 }
@@ -405,54 +422,54 @@ void run1stpass(int pc)
     }
 }
 
-int runOpcode(char code[4], int pc, int *error)
+int runOpcode(char code[4], int pc, int *error, bool tracing)
 {
-    for (int j = 3; j > -1; j--)
+    if (tracing)
     {
-        printf("%02hhx", code[j]);
+        printf("%08d  ", pc);
+        for (int j = 3; j > -1; j--)
+        {
+            printf("%02hhx", code[j]);
+        }
     }
-    // printf("\n");
 
     if (code[0] == jmp)
     {
-        printf(" Jump\n");
+        if (tracing)
+        {
+            printf(" Jump\n");
+        }
+
         return 1;
     }
 
     else if (code[0] == load)
     {
-        printf(" Load\n");
-        int result = code[3] | code[2] | (code[1] >> 4);
-        printf("%d\n", result + pc);
+        if (tracing)
+        {
+            printf(" Load\n");
+        }
 
-        if (result > 0)
-        {
-            result ++;
-        }
-        if (result<0)
-        {
-             result --;
-        }
-        
-        
+        int result = returnAddr(code, 5);
 
         if (pc + result > opCodeSize)
         {
-            *error = 2;
+            *error = VMX20_ADDRESS_OUT_OF_RANGE;
             return 0;
         }
         if (pc + result < 0)
         {
-            *error = 2;
+            *error = VMX20_ADDRESS_OUT_OF_RANGE;
             return 0;
         }
         int *outword = malloc(sizeof(int));
 
-        printf("%d\n", result + pc);
+        // printf("%d\n", result + pc);
+
         if (getWord(pc + result, outword) == 0)
         {
-            printf("VMX20_ADDRESS_OUT_OF_RANGE\n");
-            exit(1);
+            *error = VMX20_ADDRESS_OUT_OF_RANGE;
+            return 0;
         }
 
         registers[code[1] & 0xf].regNum = *outword;
@@ -461,92 +478,104 @@ int runOpcode(char code[4], int pc, int *error)
 
     else if (code[0] == halt)
     {
-        printf("halt\n");
+        if (tracing)
+        {
+            printf("halt\n");
+        }
+
         return 1;
     }
 
     else if (code[0] == store)
     {
-        printf(" Store\n");
-        int result = (code[3] << 12) | (code[2] << 4) | (code[1] >> 4);
-        if (result > 0)
+        if (tracing)
         {
-            result++;
+            printf(" Store\n");
         }
-        else
-        {
-            result--;
-        }
+        int result = returnAddr(code, 5);
+        printf("%d\n", result + pc);
+
         if (pc + result > opCodeSize)
         {
-            *error = 2;
+            *error = VMX20_ADDRESS_OUT_OF_RANGE;
             return 0;
         }
         if (pc + result < 0)
         {
-            *error = 2;
+            *error = VMX20_ADDRESS_OUT_OF_RANGE;
             return 0;
         }
-        
-            if (putWord(pc + result, registers[code[1] & 0xf].regNum) == 0)
-            {
-                printf("VMX20_ILLEGAL_INSTRUCTION\n");
-            exit(1);
-            }
+
+        if (putWord(pc + result, registers[code[1] & 0xf].regNum) == 0)
+        {
+            *error = VMX20_ADDRESS_OUT_OF_RANGE;
+            return 0;
+        }
 
         return 1;
     }
 
     else if (code[0] == addf)
     {
-        printf(" addf\n");
+        if (tracing)
+        {
+            printf(" addf\n");
+        }
+
         float firstReg = registers[code[1] & 0xf].regNum;
         float secReg = registers[code[1] >> 4].regNum;
-        registers[code[1] >> 4].regNum = 0;
+        // registers[code[1] >> 4].regNum = 0;
         registers[code[1] & 0xf].regNum = (int)(firstReg + secReg);
     }
 
     else if (code[0] == addi)
     {
-        printf(" %d ",  code[1] >> 4);
+        // printf(" %d ", code[1] >> 4);
+        if (tracing)
+        {
+            printf(" addi\n");
+        }
 
-        printf(" addi\n");
         int temp = registers[code[1] & 0xf].regNum;
 
         registers[code[1] & 0xf].regNum = registers[code[1] >> 4].regNum + temp;
 
-        printf("%d \n",  registers[code[1] & 0xf].regNum);
-        registers[code[1] >> 4].regNum = 0;
+        // printf("%d \n", registers[code[1] & 0xf].regNum);
+        // registers[code[1] >> 4].regNum = 0;
     }
 
     else if (code[0] == subf)
     {
-        printf(" subf\n");
+        if (tracing)
+        {
+            printf(" subf\n");
+        }
+
         float firstReg = registers[code[1] & 0xf].regNum;
         float secReg = registers[code[1] >> 4].regNum;
         registers[code[1] & 0xf].regNum = (int)(firstReg - secReg);
-        registers[code[1] >> 4].regNum = 0;
+        // registers[code[1] >> 4].regNum = 0;
     }
 
     else if (code[0] == subi)
     {
-        printf(" subi\n");
+        if (tracing)
+        {
+            printf(" subi\n");
+        }
+
         registers[code[1] & 0xf].regNum -= registers[code[1] >> 4].regNum;
-        registers[code[1] >> 4].regNum = 0;
+        // registers[code[1] >> 4].regNum = 0;
     }
 
     else if (code[0] == ldaddr)
     {
-        printf(" ldaddr\n");
-        int result = (code[3] << 12) | (code[2] << 4) | (code[1] >> 4);
-        if (result > 0)
+        if (tracing)
         {
-            result++;
+            printf(" ldaddr\n");
         }
-        else
-        {
-            result--;
-        }
+
+        int result = returnAddr(code, 5);
 
         if (pc + result > opCodeSize)
         {
@@ -565,7 +594,11 @@ int runOpcode(char code[4], int pc, int *error)
 
     else if (code[0] == ldimm)
     {
-        printf(" ldimm\n");
+        if (tracing)
+        {
+            printf(" ldimm\n");
+        }
+
         int result = (code[3] << 12) | (code[2] << 4) | (code[1] >> 4);
 
         registers[code[1] & 0xf].regNum = result;
@@ -573,24 +606,47 @@ int runOpcode(char code[4], int pc, int *error)
         return 1;
     }
 
-    else if(code[0] == ldind){
-        printf(" ldind\n");
-        int result = (code[3] << 8)| (code[2]);
+    else if (code[0] == ldind)
+    {
+        if (tracing)
+        {
+            printf(" ldind\n");
+        }
+
+        int result = returnAddr(code, 4);
+
+        if (result >= 0)
+        {
+            result--;
+        }
+        else
+        {
+            result++;
+        }
+
+        // printf("%d \n", result);
+
         result += registers[code[1] >> 4].regNum;
+
         int *outword = malloc(sizeof(int));
-        if(getWord(result, outword) == 0){
+        if (getWord(result, outword) == 0)
+        {
             // printf("%d    ", result);
-            printf("VMX20_ADDRESS_OUT_OF_RANGE\n");
-            // exit(1);
+            *error = VMX20_ADDRESS_OUT_OF_RANGE;
+            return 0;
         };
         registers[code[1] & 0xf].regNum = *(int *)outword;
 
         return 1;
     }
-   
+
     else
     {
-        printf("\n");
+        if (tracing)
+        {
+            printf("\n");
+        }
+
         return 1;
     }
 }
@@ -643,3 +699,36 @@ int disassemble(unsigned int address, char *buffer, int *errorNumber)
 //Notes
 //Used to get addr
 // int result = inst[i].code[3] | inst[i].code[2] |(inst[i].code[1] >> 4);
+
+int returnAddr(char code[4], int amount)
+{
+    if (amount == 5)
+    {
+        unsigned int negChecker = (code[3] >> 4) & 0xf;
+        if (negChecker == 15) //do twos comp
+        {
+            int linesmoved = 1048575 - ((((code[3] >> 4) & 0xf) * pow(16, 4)) + ((code[3] & 0xf) * pow(16, 3)) + (((code[2] >> 4) & 0xf) * pow(16, 2)) + ((code[2] & 0xf) * 16) + ((code[1] >> 4) & 0xf));
+            return -linesmoved;
+        }
+        else
+        {
+            int linesmoved = (((code[3] >> 4) & 0xf) * pow(16, 4)) + ((code[3] & 0xf) * pow(16, 3)) + (((code[2] >> 4) & 0xf) * pow(16, 2)) + ((code[2] & 0xf) * 16) + ((code[1] >> 4) & 0xf);
+            return linesmoved + 1;
+        }
+    }
+    else
+    {
+        unsigned int negChecker = code[3] & 0xf;
+
+        if (negChecker == 15) //do twos comp
+        {
+            int linesmoved = 65535 - ((((code[3] >> 4) & 0xf) * pow(16, 3)) + ((code[3] & 0xf) * pow(16, 2)) + (((code[2] >> 4) & 0xf) * 16) + (code[2] & 0xf));
+            return -linesmoved;
+        }
+        else
+        {
+            int linesmoved = ((((code[3] >> 4) & 0xf) * pow(16, 3)) + ((code[3] & 0xf) * pow(16, 2)) + (((code[2] >> 4) & 0xf) * 16) + (code[2] & 0xf));
+            return linesmoved + 1;
+        }
+    }
+}

@@ -10,9 +10,6 @@ void printLoadError(int *error);
 int main(int argc, char **argv)
 {
     int *loadError = malloc(sizeof(int));
-
-    int loadReturn = loadExecutableFile(argv[1], loadError); //only works for 1 file currently
-
     char **results = malloc(argc * sizeof(char *));
     int count = 0;
 
@@ -33,10 +30,9 @@ int main(int argc, char **argv)
                 hasVal = true;
                 strncpy(name[preloadCount], mystr, j);
                 name[preloadCount][j] = '\0';
-                char *temp = malloc(sizeof(char*));
-                strncpy(temp, mystr + j + 1, strlen(mystr)- j);
+                char *temp = malloc(sizeof(char *));
+                strncpy(temp, mystr + j + 1, strlen(mystr) - j);
                 val[preloadCount++] = atof(temp);
-
             }
         }
         if (hasVal == false) //add to print results
@@ -44,28 +40,25 @@ int main(int argc, char **argv)
             results[count++] = argv[i];
         }
     }
-    printf("good\n");
-    
-    for (int i = 0; i < count; i++)
-    {
-        printf("%s\n", results[i]);
-    }
-    
 
+    preloadsym(name, val, preloadCount);
+
+    int loadReturn = loadExecutableFile(argv[1], loadError); //only works for 1 file currently
 
     if (loadReturn == 0)
     {
         printLoadError(loadError);
     }
     else
-    {    
-        preloadsym(name, val, preloadCount);
+    {
         printResults(results, count);
         int term[1];
         unsigned int sp[1];
-        if(execute(1, sp, term, 1) == 1){
-            // printf("vmx halts with status 0\n");
-             printVal();
+        sp[0] = 0;
+        if (execute(1, sp, term, 1) == 1)
+        {
+            printf("Term %d\n", term[0]);
+            printVal();
             exit(0);
         }
     }

@@ -66,11 +66,11 @@ int loadExecutableFile(char *filename, int *errorNumber)
     char *buffer = malloc(fsize + 1);
     fread(buffer, 1, fsize, in_file);
     fclose(in_file);
+    // if (fsize < 12){
+    //     *errorNumber = VMX20_FILE_IS_NOT_VALID;
+    //     return 0;
+    // }
 
-    if (sizeof(buffer) < 12){
-        *errorNumber = VMX20_FILE_IS_NOT_VALID;
-        return 0;
-    }
     //get insyms
     char insymbolSize[4];
     memcpy(insymbolSize, buffer, 4);
@@ -81,7 +81,7 @@ int loadExecutableFile(char *filename, int *errorNumber)
     inSymSize = insymLinesInt;
     insyms = (symbol *)malloc(sizeof(symbol) * (insymLinesInt / 5));
 
-//check for outsyms
+    //check for outsyms
     char outsymbolSize[4];
     memcpy(outsymbolSize, buffer + sizeof(insymbolSize), 4);
     char outSymLines[50];
@@ -94,7 +94,6 @@ int loadExecutableFile(char *filename, int *errorNumber)
         return 0;
     }
 
-
     //get opcodes
     char opcodesizechar[4];
     memcpy(opcodesizechar, buffer + 8, 4);
@@ -104,15 +103,14 @@ int loadExecutableFile(char *filename, int *errorNumber)
     opCodeSize = atoi(opcodeLines);
     inst = (instruction *)malloc(sizeof(instruction) * opCodeSize);
 
-    printf("%ld  %d\n",sizeof(buffer),  ((opCodeSize * 4) + (inSymSize * 4) + 12));
+    // printf("%d %d %d\n",inSymSize, outsymLinesInt, opCodeSize );
+    // // printf("%ld  %d\n", sizeof(buffer),  ((opCodeSize * 4) + (inSymSize * 4) + 12));
 
     // if (sizeof(buffer) != ((opCodeSize * 4) + (inSymSize * 4) + 12))
     // {
     //    *errorNumber = VMX20_FILE_IS_NOT_VALID;
     //     return 0;
     // }
-    
-
 
     //put insyms into struct
     for (int i = 0; i < insymLinesInt / 5; i++)
@@ -130,8 +128,6 @@ int loadExecutableFile(char *filename, int *errorNumber)
     }
 
     inSymSize = insymLinesInt / 5;
-    
-
 
     //put opcodes into struct
 
@@ -139,30 +135,45 @@ int loadExecutableFile(char *filename, int *errorNumber)
     {
         //code
         memcpy(inst[i].code, buffer + 12 + (20 * inSymSize) + (i * 4), 4);
-
-        //line
-        inst[i].line = i;
-    }
-  
-
-    load0intoReg();
-    //1st pass
-    run1stpass(0);
-
-    data = (Data *)malloc(sizeof(Data) * 20000);
-    //load data
-    for (int i = 0; i < opCodeSize; i++)
-    {
-
-        if (inst[i].checked != true)
+        if (i < 20)
         {
             // for (int j = 0; j < 4; j++)
             // {
             //     printf("%02hhx", inst[i].code[j]);
             // }
+            // printf("\n");
+        }
+
+        //line
+        inst[i].line = i;
+    }
+
+    load0intoReg();
+    //1st pass
+    run1stpass(0);
+
+    data = (Data *)malloc(sizeof(Data) * opCodeSize);
+    //load data
+    for (int i = 0; i < opCodeSize; i++)
+    {
+        if (inst[i].checked != true)
+        {
+            // if (i < 20)
+            // {
+            //     for (int j = 0; j < 4; j++)
+            //     {
+            //         printf("%02hhx", inst[i].code[j]);
+            //     }
+            // }
 
             int result = (inst[i].code[3] << 24) | (inst[i].code[2] << 16) | (inst[i].code[1] << 8) | (inst[i].code[0]);
-            // printf(" %d   %d\n", i, result);
+            
+            // if (i < 20)
+            // {
+            //     printf(" %d   %d\n", i, result);
+            // }
+            
+            
             putWord(i, result);
             continue;
         }
@@ -213,21 +224,22 @@ int putWord(unsigned int addr, int word)
 
     if (dataSize > 0)
     {
-         // printf("%d   %d\n", addr, word);
-    for (int i = 0; i < dataSize; i++)
-    {
-        if (data[i].line == addr)
+        // printf("%d   %d\n", addr, word);
+        for (int i = 0; i < dataSize; i++)
         {
-            data[i].data = word;
-            return 1;
+            if (data[i].line == addr)
+            {
+                data[i].data = word;
+                return 1;
+            }
         }
     }
-    }
-    
-    if(donewithload){
+
+    if (donewithload)
+    {
         return 1;
     }
-   
+
     // int *tempdata =  (int *)malloc(dataSize * sizeof(int));
     // memcpy(tempdata, data, dataSize* sizeof(int));
     // data = (int *)malloc((dataSize + 1) * sizeof(int));
@@ -235,13 +247,13 @@ int putWord(unsigned int addr, int word)
     // free(tempdata);
     data[dataSize].data = word;
 
-//  int *tempdata1 =  (int *)malloc(dataSize * sizeof(int));
-//     memcpy(tempdata1, dataline, dataSize* sizeof(int));
-//     dataline = (int *)malloc((dataSize + 1) * sizeof(int));
-//     memcpy(dataline, tempdata1, dataSize* sizeof(int));
-//     free(tempdata1);
-   data[dataSize].line = addr;
-   
+    //  int *tempdata1 =  (int *)malloc(dataSize * sizeof(int));
+    //     memcpy(tempdata1, dataline, dataSize* sizeof(int));
+    //     dataline = (int *)malloc((dataSize + 1) * sizeof(int));
+    //     memcpy(dataline, tempdata1, dataSize* sizeof(int));
+    //     free(tempdata1);
+    data[dataSize].line = addr;
+
     // printf("%d\n",dataSize);
     dataSize++;
     //  printf("New %d", dataSize);
@@ -287,7 +299,7 @@ int execute(unsigned int numProcessors, unsigned int initialSP[],
 
     int *error;
     while (!isEmpty(sp))
-    {   
+    {
         int i = stackpeek(sp);
         if (inst[i].checked == true && inst[i].data == false)
         {
@@ -295,7 +307,7 @@ int execute(unsigned int numProcessors, unsigned int initialSP[],
             {
                 printTrace();
             }
-
+            
             if (runOpcode(inst[i].code, i, error, trace) == 0)
             {
                 terminationStatus[0] = *error;
@@ -306,13 +318,11 @@ int execute(unsigned int numProcessors, unsigned int initialSP[],
                 return 1;
             }
         }
-   
+
         stackpop(sp);
         i++;
         stackpush(sp, i);
     }
-    
-
 
     free(registers);
     free(inst);
@@ -334,7 +344,7 @@ void printVal()
             {
                 printf("%s = ", resultList[i]);
                 getWord(insyms[j].line, outword);
-                printf("%.6g\n", *(float*)&*outword);
+                printf("%.6g\n", *(float *)&*outword);
             }
         }
     }
@@ -380,23 +390,31 @@ void run1stpass(int pc)
     while (true)
     {
         if (inst[i].checked == false && inst[i].data != true)
-            ;
         {
+            // printf("Line %d ", i);
+            // for (int j = 0; j < 4; j++)
+            // {
+            //     printf("%02hhx", inst[i].code[j]);
+            // }
+            // printf("\n");
+            
+
             inst[i].data = false;
             inst[i].checked = true;
+
             if (inst[i].code[0] == jmp)
             {
                 inst[i].data = false;
-                int result = inst[i].code[3] | inst[i].code[2] | (inst[i].code[1] >> 4);
+                int result = returnAddr(inst[i].code, 5);
                 if (result > 0)
                 {
                     // printf("%d\n", i + result + 1);
-                    for (int j = pc + 1; j < i + result + 1; j++)
+                    for (int j = pc + 1; j < i + result; j++)
                     {
                         inst[j].data = true;
                     }
 
-                    run1stpass(i + result + 1);
+                    run1stpass(i + result);
                     return;
                 }
                 else
@@ -404,72 +422,37 @@ void run1stpass(int pc)
                     return;
                 }
             }
-            else if (inst[i].code[0] == call)
+            if (inst[i].code[0] == call)
             {
-                int result = inst[i].code[3] | inst[i].code[2] | (inst[i].code[1] >> 4);
-                if (result > 0)
-                {
-                    //  printf("%d\n", i + result + 1);
-                    run1stpass(i + result + 1);
-                }
-                else
-                {
-                    //  printf("%d\n", i + result - 1);
-                    run1stpass(i + result - 1);
-                }
+                int result = returnAddr(inst[i].code, 5);
+                run1stpass(i + result);
             }
-            else if (inst[i].code[0] == ret)
+            if (inst[i].code[0] == ret)
             {
                 return;
             }
-            else if (inst[i].code[0] == halt)
+            if (inst[i].code[0] == halt)
             {
                 return;
             }
-            else if (inst[i].code[0] == beq)
+            if (inst[i].code[0] == beq)
             {
-                int result = inst[i].code[3] | inst[i].code[2];
-                if (result > 0)
-                {
-                    //  printf("%d\n", i + result + 1);
-                    run1stpass(i + result + 1);
-                }
-                else
-                {
-                    //  printf("%d\n", i + result - 1);
-                    run1stpass(i + result - 1);
-                }
+                int result = returnAddr(inst[i].code, 4);
+                run1stpass(i + result);
             }
-            else if (inst[i].code[0] == bgt)
+            if (inst[i].code[0] == bgt)
             {
 
-                int result = inst[i].code[3] | inst[i].code[2];
-                if (result > 0)
-                {
-                    //  printf("%d\n", i + result + 1);
-                    run1stpass(i + result + 1);
-                }
-                else
-                {
-                    //  printf("%d\n", i + result - 1);
-                    run1stpass(i + result - 1);
-                }
+                int result = returnAddr(inst[i].code, 4);
+                run1stpass(i + result);
             }
-            else if (inst[i].code[0] == blt)
+            if (inst[i].code[0] == blt)
             {
 
-                int result = inst[i].code[3] | inst[i].code[2];
-                if (result > 0)
-                {
-                    //  printf("%d\n", i + result + 1);
-                    run1stpass(i + result + 1);
-                }
-                else
-                {
-                    // printf("%d\n", i + result - 1);
-                    run1stpass(i + result - 1);
-                }
+                int result = returnAddr(inst[i].code, 4);
+                run1stpass(i + result);
             }
+
             i++;
         }
     }
@@ -575,15 +558,14 @@ int runOpcode(char code[4], int pc, int *error, bool tracing)
             printf(" addf\n");
         }
 
-        float firstReg = *(float*)&registers[code[1] & 0xf].regNum;
-        float secReg = *(float*)&registers[code[1] >> 4].regNum;
+        float firstReg = *(float *)&registers[code[1] & 0xf].regNum;
+        float secReg = *(float *)&registers[code[1] >> 4].regNum;
         float total = firstReg + secReg;
         registers[code[1] & 0xf].regNum = *(int *)&total;
     }
 
     else if (code[0] == addi)
     {
-        // printf(" %d ", code[1] >> 4);
         if (tracing)
         {
             printf(" addi\n");
@@ -593,8 +575,7 @@ int runOpcode(char code[4], int pc, int *error, bool tracing)
 
         registers[code[1] & 0xf].regNum = registers[code[1] >> 4].regNum + temp;
 
-        // printf("%d \n", registers[code[1] & 0xf].regNum);
-        // registers[code[1] >> 4].regNum = 0;
+       
     }
 
     else if (code[0] == subf)
@@ -604,8 +585,8 @@ int runOpcode(char code[4], int pc, int *error, bool tracing)
             printf(" subf\n");
         }
 
-        float firstReg = *(float*)&registers[code[1] & 0xf].regNum;
-        float secReg = *(float*)&registers[code[1] >> 4].regNum;
+        float firstReg = *(float *)&registers[code[1] & 0xf].regNum;
+        float secReg = *(float *)&registers[code[1] >> 4].regNum;
         float total = firstReg - secReg;
         registers[code[1] & 0xf].regNum = *(int *)&total;
         // registers[code[1] >> 4].regNum = 0;
@@ -668,7 +649,6 @@ int runOpcode(char code[4], int pc, int *error, bool tracing)
         }
 
         int result = returnAddr(code, 4);
-
         if (result >= 0)
         {
             result--;
@@ -679,7 +659,11 @@ int runOpcode(char code[4], int pc, int *error, bool tracing)
         }
 
         // printf("%d \n", result);
-
+        // for (int i = 3; i > 0; i++)
+        // {
+        //     printf("%02hhx", code[i]);
+        // }
+        
         result += registers[code[1] >> 4].regNum;
 
         int *outword = malloc(sizeof(int));
@@ -689,7 +673,8 @@ int runOpcode(char code[4], int pc, int *error, bool tracing)
             *error = VMX20_ADDRESS_OUT_OF_RANGE;
             return 0;
         };
-        registers[code[1] & 0xf].regNum = *(int *)outword;
+        
+        registers[code[1] & 0xf].regNum = *outword;
 
         return 1;
     }
@@ -772,10 +757,11 @@ int returnAddr(char code[4], int amount)
     }
     else
     {
-        unsigned int negChecker = code[3] & 0xf;
-
+        unsigned int negChecker = (code[3] >> 4) & 0xf;
+        // printf("%d   ",  negChecker);
         if (negChecker == 15) //do twos comp
         {
+            printf("%02hhx%02hhx\n", code[3], code[2]);
             int linesmoved = 65535 - ((((code[3] >> 4) & 0xf) * pow(16, 3)) + ((code[3] & 0xf) * pow(16, 2)) + (((code[2] >> 4) & 0xf) * 16) + (code[2] & 0xf));
             return -linesmoved;
         }
@@ -786,55 +772,59 @@ int returnAddr(char code[4], int amount)
         }
     }
 }
-struct  stack* newStack(int capacity)
+struct stack *newStack(int capacity)
 {
-    struct stack *pt = (struct stack*)malloc(sizeof(stack));
+    struct stack *pt = (struct stack *)malloc(sizeof(stack));
     pt->maxsize = capacity;
     pt->top = -1;
-    pt->items = (int*)malloc(sizeof(int)* capacity);
+    pt->items = (int *)malloc(sizeof(int) * capacity);
     return pt;
-    
 };
 
-int size(stack *pt){
+int size(stack *pt)
+{
     return pt->top + 1;
 }
 
-int isEmpty(stack *pt){
+int isEmpty(stack *pt)
+{
     return pt->top == -1;
 }
 
-int isFull(stack *pt){
-    return pt->top == pt->maxsize -1;
+int isFull(stack *pt)
+{
+    return pt->top == pt->maxsize - 1;
 }
 
-void stackpush(stack *pt, int x){
+void stackpush(stack *pt, int x)
+{
     if (isFull(pt))
     {
         printf("Stack Overflow\n Program Terminated\n");
         exit(0);
     }
-    pt->items[++pt->top] = x;    
+    pt->items[++pt->top] = x;
 }
 
-int stackpeek(stack *pt){
+int stackpeek(stack *pt)
+{
     if (!isEmpty(pt))
     {
         return pt->items[pt->top];
     }
-    else{
+    else
+    {
         printf("No Stack Items Program Terminated\n");
         exit(0);
     }
-    
 }
 
-int stackpop(stack *pt){
+int stackpop(stack *pt)
+{
     if (isEmpty(pt))
     {
         printf("Underflow\nProgram Termninated\n");
         exit(0);
     }
     return pt->items[pt->top--];
-    
 }

@@ -70,6 +70,11 @@ int main(int argc, char **argv)
         }
         
     }
+
+    free(loadError);
+    free(results);
+    free(name);
+    free(val);
 }
 
 void printLoadError(int *error)

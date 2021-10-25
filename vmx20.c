@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include "Opcodes.h"
 #include "extraFunc.h"
-#include "Stack.h"
+// #include "Stack.h"
 
 static symbol *insyms = NULL;
 static instruction *inst = NULL;
@@ -21,6 +21,7 @@ static float *preloadVals;
 static int amountofPreload;
 static char **resultList;
 static int resultAmount;
+static int donewithload = 0;
 
 int loadExecutableFile(char *filename, int *errorNumber)
 {
@@ -66,6 +67,10 @@ int loadExecutableFile(char *filename, int *errorNumber)
     fread(buffer, 1, fsize, in_file);
     fclose(in_file);
 
+    if (sizeof(buffer) < 12){
+        *errorNumber = VMX20_FILE_IS_NOT_VALID;
+        return 0;
+    }
     //get insyms
     char insymbolSize[4];
     memcpy(insymbolSize, buffer, 4);
@@ -75,6 +80,39 @@ int loadExecutableFile(char *filename, int *errorNumber)
     int insymLinesInt = atoi(inSymLines);
     inSymSize = insymLinesInt;
     insyms = (symbol *)malloc(sizeof(symbol) * (insymLinesInt / 5));
+
+//check for outsyms
+    char outsymbolSize[4];
+    memcpy(outsymbolSize, buffer + sizeof(insymbolSize), 4);
+    char outSymLines[50];
+    sprintf(outSymLines, "%u", *(int *)outsymbolSize);
+    int outsymLinesInt = atoi(outSymLines);
+
+    if (outsymLinesInt > 0)
+    {
+        *errorNumber = VMX20_FILE_CONTAINS_OUTSYMBOLS;
+        return 0;
+    }
+
+
+    //get opcodes
+    char opcodesizechar[4];
+    memcpy(opcodesizechar, buffer + 8, 4);
+
+    char opcodeLines[50];
+    sprintf(opcodeLines, "%u", *(int *)opcodesizechar);
+    opCodeSize = atoi(opcodeLines);
+    inst = (instruction *)malloc(sizeof(instruction) * opCodeSize);
+
+    printf("%ld  %d\n",sizeof(buffer),  ((opCodeSize * 4) + (inSymSize * 4) + 12));
+
+    // if (sizeof(buffer) != ((opCodeSize * 4) + (inSymSize * 4) + 12))
+    // {
+    //    *errorNumber = VMX20_FILE_IS_NOT_VALID;
+    //     return 0;
+    // }
+    
+
 
     //put insyms into struct
     for (int i = 0; i < insymLinesInt / 5; i++)
@@ -92,27 +130,8 @@ int loadExecutableFile(char *filename, int *errorNumber)
     }
 
     inSymSize = insymLinesInt / 5;
-    //check for outsyms
-    char outsymbolSize[4];
-    memcpy(outsymbolSize, buffer + sizeof(insymbolSize), 4);
-    char outSymLines[50];
-    sprintf(outSymLines, "%u", *(int *)outsymbolSize);
-    int outsymLinesInt = atoi(outSymLines);
+    
 
-    if (outsymLinesInt > 0)
-    {
-        *errorNumber = VMX20_FILE_CONTAINS_OUTSYMBOLS;
-        return 0;
-    }
-
-    //get opcodes
-    char opcodesizechar[4];
-    memcpy(opcodesizechar, buffer + 8, 4);
-
-    char opcodeLines[50];
-    sprintf(opcodeLines, "%u", *(int *)opcodesizechar);
-    opCodeSize = atoi(opcodeLines);
-    inst = (instruction *)malloc(sizeof(instruction) * opCodeSize);
 
     //put opcodes into struct
 
@@ -124,11 +143,13 @@ int loadExecutableFile(char *filename, int *errorNumber)
         //line
         inst[i].line = i;
     }
-    data = (Data *)malloc(opCodeSize * sizeof(Data));
+  
 
     load0intoReg();
     //1st pass
     run1stpass(0);
+
+    data = (Data *)malloc(sizeof(Data) * 20000);
     //load data
     for (int i = 0; i < opCodeSize; i++)
     {
@@ -146,6 +167,7 @@ int loadExecutableFile(char *filename, int *errorNumber)
             continue;
         }
     }
+    donewithload = 1;
     return 1;
 }
 
@@ -176,6 +198,7 @@ int getWord(unsigned int addr, int *outWord)
         // printf("%d   %d\n", data[i].line, addr);
         if (data[i].line == addr)
         {
+
             *outWord = data[i].data;
             return 1;
         }
@@ -187,6 +210,10 @@ int getWord(unsigned int addr, int *outWord)
 //   the function returns 1 if successful and 0 otherwise
 int putWord(unsigned int addr, int word)
 {
+
+    if (dataSize > 0)
+    {
+         // printf("%d   %d\n", addr, word);
     for (int i = 0; i < dataSize; i++)
     {
         if (data[i].line == addr)
@@ -195,9 +222,29 @@ int putWord(unsigned int addr, int word)
             return 1;
         }
     }
+    }
+    
+    if(donewithload){
+        return 1;
+    }
+   
+    // int *tempdata =  (int *)malloc(dataSize * sizeof(int));
+    // memcpy(tempdata, data, dataSize* sizeof(int));
+    // data = (int *)malloc((dataSize + 1) * sizeof(int));
+    // memcpy(data, tempdata, dataSize* sizeof(int));
+    // free(tempdata);
     data[dataSize].data = word;
-    data[dataSize].line = addr;
+
+//  int *tempdata1 =  (int *)malloc(dataSize * sizeof(int));
+//     memcpy(tempdata1, dataline, dataSize* sizeof(int));
+//     dataline = (int *)malloc((dataSize + 1) * sizeof(int));
+//     memcpy(dataline, tempdata1, dataSize* sizeof(int));
+//     free(tempdata1);
+   data[dataSize].line = addr;
+   
+    // printf("%d\n",dataSize);
     dataSize++;
+    //  printf("New %d", dataSize);
     return 1;
 }
 
@@ -230,14 +277,17 @@ int execute(unsigned int numProcessors, unsigned int initialSP[],
 
     //Initialize stack and put in values
     stack *sp = newStack(50);
-    for (int i = 0; i < sizeof(*initialSP) / 4; i++)
-    {
-        stackpush(sp, initialSP[i]);
-    }
+
+    // for (int i = 0; i < sizeof(*initialSP) / 4; i++)
+    // {
+    //     printf("%d\n", initialSP[i]);
+    //     stackpush(sp, initialSP[i]);
+    // }
+    stackpush(sp, 0);
 
     int *error;
     while (!isEmpty(sp))
-    {
+    {   
         int i = stackpeek(sp);
         if (inst[i].checked == true && inst[i].data == false)
         {
@@ -256,14 +306,18 @@ int execute(unsigned int numProcessors, unsigned int initialSP[],
                 return 1;
             }
         }
-        else
-        {
-            // printf("data\n");
-        }
+   
         stackpop(sp);
         i++;
         stackpush(sp, i);
     }
+    
+
+
+    free(registers);
+    free(inst);
+    free(preloadNames);
+    free(preloadVals);
     return 1;
 }
 
@@ -284,6 +338,7 @@ void printVal()
             }
         }
     }
+    free(resultList);
 }
 
 void printResults(char **mystrlist, int amount)
@@ -730,4 +785,56 @@ int returnAddr(char code[4], int amount)
             return linesmoved + 1;
         }
     }
+}
+struct  stack* newStack(int capacity)
+{
+    struct stack *pt = (struct stack*)malloc(sizeof(stack));
+    pt->maxsize = capacity;
+    pt->top = -1;
+    pt->items = (int*)malloc(sizeof(int)* capacity);
+    return pt;
+    
+};
+
+int size(stack *pt){
+    return pt->top + 1;
+}
+
+int isEmpty(stack *pt){
+    return pt->top == -1;
+}
+
+int isFull(stack *pt){
+    return pt->top == pt->maxsize -1;
+}
+
+void stackpush(stack *pt, int x){
+    if (isFull(pt))
+    {
+        printf("Stack Overflow\n Program Terminated\n");
+        exit(0);
+    }
+    pt->items[++pt->top] = x;    
+}
+
+int stackpeek(stack *pt){
+    if (!isEmpty(pt))
+    {
+        return pt->items[pt->top];
+    }
+    else{
+        printf("No Stack Items Program Terminated\n");
+        exit(0);
+    }
+    
+}
+
+int stackpop(stack *pt){
+    if (isEmpty(pt))
+    {
+        printf("Underflow\nProgram Termninated\n");
+        exit(0);
+    }
+    return pt->items[pt->top--];
+    
 }

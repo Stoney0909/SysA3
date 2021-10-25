@@ -6,7 +6,7 @@ int loadSymsfrominterface();
 
 int preloadsym(char **names, float *val, int amount);
 
-void run1stpass(int pc);
+void run1stpass(int pc, int *error);
 
 int runOpcode(char code[4], int pc, int *error, bool tracing);
 

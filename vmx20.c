@@ -150,8 +150,14 @@ int loadExecutableFile(char *filename, int *errorNumber)
 
     load0intoReg();
     //1st pass
-    run1stpass(0);
-
+    int *error1 = 0;
+    run1stpass(0, error1);
+    if (*error1 == 1)
+    {
+        *errorNumber = VMX20_FILE_IS_NOT_VALID;
+        return 0;
+    }
+    
     data = (Data *)malloc(sizeof(Data) * opCodeSize);
     //load data
     for (int i = 0; i < opCodeSize; i++)
@@ -384,7 +390,7 @@ int preloadsym(char **names, float *val, int amount)
     return 1;
 }
 
-void run1stpass(int pc)
+void run1stpass(int pc, int *error)
 {
     int i = pc;
     while (true)
@@ -414,7 +420,7 @@ void run1stpass(int pc)
                         inst[j].data = true;
                     }
 
-                    run1stpass(i + result);
+                    run1stpass(i + result, error);
                     return;
                 }
                 else
@@ -425,7 +431,7 @@ void run1stpass(int pc)
             if (inst[i].code[0] == call)
             {
                 int result = returnAddr(inst[i].code, 5);
-                run1stpass(i + result);
+                run1stpass(i + result, error);
             }
             if (inst[i].code[0] == ret)
             {
@@ -438,21 +444,25 @@ void run1stpass(int pc)
             if (inst[i].code[0] == beq)
             {
                 int result = returnAddr(inst[i].code, 4);
-                run1stpass(i + result);
+                run1stpass(i + result, error);
             }
             if (inst[i].code[0] == bgt)
             {
 
                 int result = returnAddr(inst[i].code, 4);
-                run1stpass(i + result);
+                run1stpass(i + result, error);
             }
             if (inst[i].code[0] == blt)
             {
 
                 int result = returnAddr(inst[i].code, 4);
-                run1stpass(i + result);
+                run1stpass(i + result, error);
             }
-
+            if (inst[i].code[0] > pop)
+            {
+               *error = 1;
+            }
+            
             i++;
         }
     }

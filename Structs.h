@@ -20,7 +20,7 @@ typedef struct Data
 }Data;
 typedef struct reg
 {
-    int regNum;
+    int reg[16];
 }reg;
 
 

@@ -9,6 +9,8 @@ void printLoadError(int *error);
 
 void printExecuteTerm(int term[], int cpu);
 
+void printDissError(int *error);
+
 int main(int argc, char **argv)
 {
     int *loadError = malloc(sizeof(int));
@@ -62,12 +64,24 @@ int main(int argc, char **argv)
         int term[1];
         unsigned int sp[1];
         sp[0] = 0;
-        if (execute(1, sp, term, 0) == 1)
-        {
-            printExecuteTerm(term, 1);
-            printVal();
-            exit(0);
+
+        int *errorNumber = malloc(sizeof(int));
+        *errorNumber = 0;
+        unsigned int linenum = 8;
+        char *buffer = malloc(100 * sizeof(char));
+        if(disassemble(linenum, buffer, errorNumber) == 0){
+            printDissError(errorNumber);
         }
+        else{
+            printf("%s\n", buffer);
+        }
+        // if (execute(1, sp, term, 0) == 1)
+        // {
+        //     printExecuteTerm(term, 1);
+        //     printVal();
+        //     exit(0);
+        // }
+        exit(0);
         
     }
 
@@ -128,7 +142,17 @@ void printExecuteTerm(int term[], int cpu)
     }
 }
 
-//todo
-//Implement:
-//execute without trace
-//exe supports jmp load store halt add and sub instr with mainx20 entry point
+void printDissError(int *error){
+    switch(*error){
+        case VMX20_ADDRESS_OUT_OF_RANGE:
+            printf("VMX20_ADDRESS_OUT_OF_RANGE\n");
+            exit(0);
+        case VMX20_ILLEGAL_INSTRUCTION:
+            printf("VMX20_ILLEGAL_INSTRUCTION\n");
+            exit(0);
+        default:
+            printf("NULL_ERROR\n");
+            exit(0);
+
+    }
+}
